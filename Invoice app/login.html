@@ -1,32 +1,29 @@
-<div id="login-page" class="container mt-5">
-    <div class="card mx-auto shadow" style="max-width: 400px;">
-        <div class="card-body">
-            <h3 class="text-center">Staff Login</h3>
-            <div class="mb-3">
-                <label>Staff ID</label>
-                <input type="text" id="staffID" class="form-control" placeholder="e.g. ST-001">
-            </div>
-            <div class="mb-3">
-                <label>Password</label>
-                <input type="password" id="pass" class="form-control">
-            </div>
-            <button onclick="checkLogin()" class="btn btn-primary w-100">Login</button>
-        </div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in — Handysz Courier</title>
+  <meta name="theme-color" content="#4f46e5" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="login-screen">
+    <div class="login-panel">
+      <div class="login-brand">
+        <img class="login-logo" src="icons/icon-192.png" alt="Handysz logo" width="64" height="64" />
+        <h1>Handysz</h1>
+        <p>Redirecting you to the sign-in page…</p>
+      </div>
+      <div class="card login-card" style="text-align:center">
+        <noscript>
+          <p style="margin:0 0 12px">JavaScript is disabled. Please <a href="index.html">open the app</a> directly.</p>
+        </noscript>
+        <a class="btn btn-gradient btn-block" href="index.html">Continue to sign in</a>
+      </div>
     </div>
-</div>
-
-<script>
-function checkLogin() {
-    const id = document.getElementById('staffID').value;
-    const pass = document.getElementById('pass').value;
-
-    // Simple Logic: Store staff info in SessionStorage
-    if(pass === "admin123") { // Replace with your actual logic
-        sessionStorage.setItem("isLoggedIn", "true");
-        sessionStorage.setItem("staffName", id);
-        window.location.href = "index.html"; // Redirect to Invoice Form
-    } else {
-        alert("Invalid Login");
-    }
-}
-</script>
+  </div>
+  <script>window.location.replace("index.html");</script>
+</body>
+</html>
