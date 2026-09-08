@@ -1,71 +1,156 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Tracking & Status</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://unpkg.com/html5-qrcode"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Track your delivery</title>
+  <meta name="description" content="Track your courier delivery status by scanning your receipt QR code or entering your invoice ID." />
+  <meta name="theme-color" content="#4f46e5" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .track-hero { background: var(--brand-grad); border-radius: var(--radius-lg); color: #fff; padding: 28px; text-align: center; }
+    .track-hero img { width: 56px; height: 56px; border-radius: 16px; box-shadow: var(--shadow-lg); margin-bottom: 12px; }
+    .track-hero h1 { font-size: 22px; color: #fff; }
+    .track-hero p { color: rgba(255,255,255,.85); margin-top: 4px; font-size: 14px; }
+    .track-shell { max-width: 560px; margin: 24px auto; padding: 0 16px; }
+    #scan-box { border-radius: var(--radius); overflow: hidden; background: #0f172a; position: relative; aspect-ratio: 16/9; }
+    #scan-box video { width: 100%; height: 100%; object-fit: cover; }
+    .track-foot { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 16px 40px; }
+  </style>
 </head>
-<body class="bg-light">
-<div class="container py-4">
-    <h3 class="text-center mb-4">Update Delivery Status</h3>
-    
-    <div id="reader" style="width: 100%; max-width: 500px; margin: auto;"></div>
-    
-    <div id="status-panel" class="card mt-4 p-4 shadow-sm d-none">
-        <h5>Invoice: <span id="displayID"></span></h5>
-        <hr>
-        <div class="mb-3">
-            <label class="form-label">Change Status To:</label>
-            <select id="newStatus" class="form-select">
-                <option value="Picked Up">Picked Up</option>
-                <option value="In Transit">In Transit</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Returned">Returned</option>
-            </select>
-        </div>
-        <button onclick="updateStatus()" class="btn btn-success w-100">Confirm Update</button>
+<body>
+
+  <div class="track-shell">
+    <div class="track-hero">
+      <img src="icons/icon-192.png" alt="logo" id="t-logo" />
+      <h1 id="t-brand">Track your delivery</h1>
+      <p id="t-phone">Enter your invoice ID or scan the QR code on your receipt.</p>
     </div>
-</div>
 
-<script>
-    const SCRIPT_URL = "YOUR_GOOGLE_SCRIPT_WEB_APP_URL";
-    let activeID = "";
+    <div class="card card-pad" style="margin-top:16px">
+      <label class="form-label" style="font-weight:600;font-size:13px;color:var(--text-2);display:block;margin-bottom:6px">Invoice ID</label>
+      <div class="input-group">
+        <input id="q" class="input" placeholder="e.g. INV-2026…" style="font-family:var(--mono)" />
+        <button class="btn btn-primary" id="search-btn">Track</button>
+      </div>
+      <div style="text-align:center;margin:12px 0 4px;color:var(--muted);font-size:13px">or</div>
+      <button class="btn btn-secondary btn-block" id="scan-btn">Scan QR code</button>
+      <div id="scan-box" hidden style="margin-top:12px"></div>
+    </div>
 
-    // Initialize Scanner
-    const html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start(
-        { facingMode: "environment" }, 
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-            // Extract ID from URL in QR
-            const url = new URL(decodedText);
-            activeID = url.searchParams.get("id");
-            
-            document.getElementById('displayID').innerText = activeID;
-            document.getElementById('status-panel').classList.remove('d-none');
-            // Beep or Vibrate on success
-            if (navigator.vibrate) navigator.vibrate(100);
-        }
-    );
+    <div id="result" style="margin-top:16px"></div>
 
-    function updateStatus() {
-        const status = document.getElementById('newStatus').value;
-        
-        fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: JSON.stringify({
-                action: "updateStatus",
-                id: activeID,
-                status: status
-            })
-        }).then(() => {
-            alert("Status Updated Successfully!");
-            location.reload();
-        });
+    <div class="track-foot">Powered by <span id="t-company">Handysz</span> · Track your shipment in real time.</div>
+  </div>
+
+  <script src="js/vendor/html5-qrcode.min.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    const PREFIX = "handysz:";
+
+    function read(key, fallback) {
+      try { const r = localStorage.getItem(PREFIX + key); return r ? JSON.parse(r) : fallback; }
+      catch (e) { return fallback; }
     }
-</script>
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+    function money(n, cur) { return (cur || "৳") + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 2 }); }
+    function dateTimeFull(ts) { const d = new Date(ts); return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) + ", " + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }); }
+    function badge(status) {
+      const map = { "Pending": "pending", "Picked Up": "picked", "In Transit": "transit", "Delivered": "delivered", "Returned": "returned" };
+      return '<span class="badge badge-' + (map[status] || "pending") + '"><span class="dot"></span>' + esc(status) + "</span>";
+    }
+
+    const settings = read("settings", {});
+    const company = settings.companyName || "Handysz";
+    document.getElementById("t-brand").textContent = "Track your delivery";
+    document.getElementById("t-company").textContent = company;
+    if (settings.phone) document.getElementById("t-phone").textContent = "Questions? Call " + settings.phone;
+
+    function find(id) {
+      const list = read("invoices", []);
+      return list.find(function (i) { return i.id.toUpperCase() === String(id).toUpperCase(); }) || null;
+    }
+
+    function render(inv) {
+      const el = document.getElementById("result");
+      if (!inv) {
+        el.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div><h4>Invoice not found</h4><p>We couldn\'t find an invoice with that ID. Please check the number on your receipt.</p></div></div>';
+        return;
+      }
+      const cur = settings.currency || "৳";
+      const total = Number(inv.qty || 0) * Number(inv.price || 0) + Number(inv.delivery || 0);
+      const history = (inv.history || []).slice().reverse().map(function (h, idx) {
+        return '<li class="' + (idx === 0 ? "current" : "") + '"><span class="t-dot"></span>' +
+          '<div class="t-status">' + esc(h.status) + '</div>' +
+          '<div class="t-meta">' + dateTimeFull(h.at) + "</div></li>";
+      }).join("");
+
+      el.innerHTML = '<div class="card" style="overflow:hidden">' +
+        '<div class="card-head"><div><h3>' + esc(inv.customer) + '</h3><div class="sub">' + esc(inv.id) + "</div></div>" +
+        "<div>" + badge(inv.status) + "</div></div>" +
+        '<div class="card-pad">' +
+        '<div class="detail-list" style="margin-bottom:8px">' +
+        '<div class="dl-item"><div class="dl-key">Product</div><div class="dl-val">' + esc(inv.product || "—") + "</div></div>" +
+        '<div class="dl-item"><div class="dl-key">COD Total</div><div class="dl-val td-amount">' + money(total, cur) + "</div></div>" +
+        '<div class="dl-item full"><div class="dl-key">Delivery address</div><div class="dl-val">' + esc(inv.address || "—") + "</div></div>" +
+        '<div class="dl-item full"><div class="dl-key">Created</div><div class="dl-val">' + dateTimeFull(inv.createdAt) + "</div></div>" +
+        "</div>" +
+        '<div class="section-title">Delivery progress</div>' +
+        '<ul class="timeline">' + (history || '<li><div class="t-meta">No updates yet</div></li>') + "</ul>" +
+        "</div></div>";
+      if (el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function loadFromInput() {
+      const q = document.getElementById("q").value.trim();
+      if (!q) return;
+      history.replaceState(null, "", "?id=" + encodeURIComponent(q.toUpperCase()));
+      render(find(q));
+    }
+
+    var scanner = null;
+    function startScan() {
+      const box = document.getElementById("scan-box");
+      if (scanner) { stopScan(); return; }
+      box.hidden = false;
+      scanner = new Html5Qrcode("scan-box");
+      scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 220, height: 220 } },
+        function (text) {
+          var id = text.trim();
+          if (/^INV-[\w-]+$/i.test(id)) id = id.toUpperCase();
+          else { try { id = (new URL(text)).searchParams.get("id") || ""; } catch (e) { id = ""; } }
+          if (id) {
+            stopScan();
+            document.getElementById("q").value = id;
+            history.replaceState(null, "", "?id=" + encodeURIComponent(id.toUpperCase()));
+            render(find(id));
+          }
+        },
+        function () {})
+        .catch(function () { box.hidden = true; });
+      document.getElementById("scan-btn").textContent = "Stop scanning";
+    }
+    function stopScan() {
+      if (scanner) { try { scanner.stop().catch(function(){}); } catch (e) {} scanner = null; }
+      document.getElementById("scan-box").hidden = true;
+      document.getElementById("scan-btn").textContent = "Scan QR code";
+    }
+
+    document.getElementById("search-btn").addEventListener("click", loadFromInput);
+    document.getElementById("q").addEventListener("keydown", function (e) { if (e.key === "Enter") loadFromInput(); });
+    document.getElementById("scan-btn").addEventListener("click", startScan);
+
+    // auto-load from ?id= param
+    var m = /[?&]id=([^&]+)/.exec(location.search);
+    if (m) {
+      var id = decodeURIComponent(m[1]);
+      document.getElementById("q").value = id;
+      render(find(id));
+    }
+  })();
+  </script>
 </body>
 </html>
